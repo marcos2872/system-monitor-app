@@ -23,12 +23,6 @@
         "skipTaskbar": true
       }
     ],
-    "trayIcon": {
-      "iconPath": "icons/32x32.png",
-      "tooltip": "System Monitor",
-      "menuOnLeftClick": false,
-      "id": "main"
-    },
     "security": {
       "csp": null
     }
