@@ -13,14 +13,14 @@
     "windows": [
       {
         "title": "System Monitor",
-        "width": 320,
-        "height": 240,
-        "resizable": false,
-        "alwaysOnTop": true,
+        "width": 920,
+        "height": 640,
+        "resizable": true,
+        "alwaysOnTop": false,
         "decorations": true,
         "center": true,
-        "visible": false,
-        "skipTaskbar": true
+        "visible": true,
+        "skipTaskbar": false
       }
     ],
     "security": {
