@@ -8,6 +8,7 @@ pub struct CpuMetrics {
     pub core_count: usize,
     pub per_core_usage: Vec<f32>,
     pub frequency: u64,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +80,9 @@ impl SystemMonitor {
 
     pub async fn update_metrics(&mut self) {
         self.system.refresh_all();
+        // Wait minimum interval for accurate CPU measurements
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        self.system.refresh_all();
     }
 
     pub fn get_cpu_metrics(&self) -> CpuMetrics {
@@ -86,12 +90,14 @@ impl SystemMonitor {
         let total_usage = cpus.iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / cpus.len() as f32;
         let per_core_usage = cpus.iter().map(|cpu| cpu.cpu_usage()).collect();
         let frequency = cpus.first().map(|cpu| cpu.frequency()).unwrap_or(0);
+        let name = self.system.global_cpu_info().brand().to_string();
 
         CpuMetrics {
             usage_percent: total_usage,
             core_count: cpus.len(),
             per_core_usage,
             frequency,
+            name,
         }
     }
 

@@ -3,6 +3,7 @@ export interface CpuMetrics {
   core_count: number;
   per_core_usage: number[];
   frequency: number;
+  name: string;
 }
 
 export interface MemoryMetrics {
