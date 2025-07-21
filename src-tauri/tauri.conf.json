@@ -14,10 +14,13 @@
       {
         "title": "System Monitor",
         "width": 920,
-        "height": 640,
+        "height": 1020,
         "resizable": true,
+        "fullscreen": false,
+        "maximizable": false,
+        "minimizable": true,
         "alwaysOnTop": false,
-        "decorations": true,
+        "decorations": false,
         "center": true,
         "visible": true,
         "skipTaskbar": false
