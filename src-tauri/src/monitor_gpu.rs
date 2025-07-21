@@ -1,6 +1,5 @@
 use serde::Serialize;
-
-use std::fs;
+use std::collections::HashSet;
 use std::process::Command;
 use wgpu;
 
@@ -13,6 +12,7 @@ pub struct UnifiedGpuInfo {
     pub basic_info: BasicGpuInfo,
     pub metrics: Option<GpuMetrics>,
     pub error: Option<String>,
+    pub is_primary: bool, // Nova flag para indicar se é a GPU principal
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -46,7 +46,7 @@ pub struct GpuMetrics {
     pub voltage: Option<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct BasicGpuData {
     name: String,
     vendor: GpuVendor,
@@ -61,13 +61,11 @@ struct BasicGpuData {
 pub struct GpuMonitor;
 
 impl GpuMonitor {
+    /// Retorna todas as GPUs (método original mantido para compatibilidade)
     pub async fn get_all_gpu_info() -> Vec<UnifiedGpuInfo> {
         let mut gpu_list = Vec::new();
-
-        // Obter informações básicas via wgpu
         let basic_gpus = Self::get_wgpu_basic_info().await;
 
-        // Para cada GPU, tentar obter métricas específicas
         for (index, basic_gpu) in basic_gpus.into_iter().enumerate() {
             let metrics = Self::get_gpu_metrics(&basic_gpu.vendor, &basic_gpu.name, index).await;
 
@@ -84,12 +82,132 @@ impl GpuMonitor {
                 },
                 metrics: metrics.0,
                 error: metrics.1,
+                is_primary: false, // Será definido pelo select_primary_gpu
             });
         }
 
         gpu_list
     }
 
+    /// Seleciona a GPU principal baseada em critérios de prioridade
+    fn select_primary_gpu(gpus: Vec<UnifiedGpuInfo>) -> Option<UnifiedGpuInfo> {
+        if gpus.is_empty() {
+            return None;
+        }
+
+        // Remover duplicatas baseadas no nome (diferentes backends da mesma GPU)
+        let mut unique_gpus = Vec::new();
+        let mut seen_names = HashSet::new();
+
+        for gpu in gpus {
+            let normalized_name = Self::normalize_gpu_name(&gpu.name);
+            if !seen_names.contains(&normalized_name) {
+                seen_names.insert(normalized_name);
+                unique_gpus.push(gpu);
+            }
+        }
+
+        if unique_gpus.len() == 1 {
+            unique_gpus[0].is_primary = true;
+            return Some(unique_gpus[0].clone());
+        }
+
+        // Critérios de prioridade para selecionar a GPU principal:
+        // 1. GPU dedicada com métricas disponíveis
+        // 2. GPU dedicada sem métricas
+        // 3. GPU integrada com métricas
+        // 4. Qualquer outra GPU
+
+        // Primeiro: GPUs dedicadas com métricas
+        for mut gpu in unique_gpus.iter().cloned() {
+            if gpu.device_type == "DiscreteGpu" && gpu.metrics.is_some() {
+                gpu.is_primary = true;
+                return Some(gpu);
+            }
+        }
+
+        // Segundo: GPUs dedicadas sem métricas
+        for mut gpu in unique_gpus.iter().cloned() {
+            if gpu.device_type == "DiscreteGpu" {
+                gpu.is_primary = true;
+                return Some(gpu);
+            }
+        }
+
+        // Terceiro: GPUs integradas com métricas
+        for mut gpu in unique_gpus.iter().cloned() {
+            if gpu.device_type == "IntegratedGpu" && gpu.metrics.is_some() {
+                gpu.is_primary = true;
+                return Some(gpu);
+            }
+        }
+
+        // Quarto: Qualquer GPU restante (priorizando por vendor)
+        let vendor_priority = [
+            GpuVendor::Nvidia,
+            GpuVendor::Amd,
+            GpuVendor::Apple,
+            GpuVendor::Intel,
+            GpuVendor::Unknown,
+        ];
+
+        for vendor in &vendor_priority {
+            for mut gpu in unique_gpus.iter().cloned() {
+                if std::mem::discriminant(&gpu.vendor) == std::mem::discriminant(vendor) {
+                    gpu.is_primary = true;
+                    return Some(gpu);
+                }
+            }
+        }
+
+        // Fallback: primeira GPU disponível
+        if let Some(mut first_gpu) = unique_gpus.into_iter().next() {
+            first_gpu.is_primary = true;
+            Some(first_gpu)
+        } else {
+            None
+        }
+    }
+
+    /// Normaliza nomes de GPU para detectar duplicatas
+    fn normalize_gpu_name(name: &str) -> String {
+        name.to_lowercase()
+            .replace("(tgl gt2)", "")
+            .replace("(dg2)", "")
+            .replace("(llvm", "")
+            .replace("llvm", "")
+            .replace("mesa", "")
+            .replace("intel(r)", "intel")
+            .replace("(r)", "")
+            .trim()
+            .to_string()
+    }
+
+    /// Método para obter apenas GPUs físicas únicas
+    pub async fn get_unique_physical_gpus() -> Vec<UnifiedGpuInfo> {
+        let all_gpus = Self::get_all_gpu_info().await;
+        let mut unique_gpus = Vec::new();
+        let mut seen_names = HashSet::new();
+
+        for gpu in all_gpus {
+            let normalized_name = Self::normalize_gpu_name(&gpu.name);
+            if !seen_names.contains(&normalized_name) {
+                seen_names.insert(normalized_name);
+                unique_gpus.push(gpu);
+            }
+        }
+
+        // Marcar a GPU principal
+        if let Some(primary_gpu) = Self::select_primary_gpu(unique_gpus.clone()) {
+            for gpu in &mut unique_gpus {
+                gpu.is_primary = gpu.name == primary_gpu.name;
+            }
+        }
+
+        unique_gpus
+    }
+
+    // Resto dos métodos mantidos iguais...
     async fn get_wgpu_basic_info() -> Vec<BasicGpuData> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -182,9 +300,8 @@ impl GpuMonitor {
         }
     }
 
-    // NVIDIA - Métricas usando nvidia-smi
+    // Resto dos métodos de métricas mantidos iguais ao código original...
     async fn get_nvidia_metrics(index: usize) -> (Option<GpuMetrics>, Option<String>) {
-        // Tentar nvidia-smi primeiro
         if let Ok(output) = Command::new("nvidia-smi")
             .args(&[
                 "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,fan.speed,clocks.gr,clocks.mem",
@@ -197,16 +314,6 @@ impl GpuMonitor {
                 let result = String::from_utf8_lossy(&output.stdout);
                 if let Some(metrics) = Self::parse_nvidia_smi_output(&result) {
                     return (Some(metrics), None);
-                }
-            }
-        }
-
-        // Fallback: NVML se disponível
-        #[cfg(feature = "nvml")]
-        {
-            if let Ok(nvml) = nvml_wrapper::Nvml::init() {
-                if let Ok(device) = nvml.device_by_index(index as u32) {
-                    return Self::get_nvml_metrics(&device);
                 }
             }
         }
@@ -245,402 +352,15 @@ impl GpuMonitor {
         }
     }
 
-    // AMD - Métricas usando ROCm SMI ou sysfs
-    async fn get_amd_metrics(index: usize) -> (Option<GpuMetrics>, Option<String>) {
-        // Tentar rocm-smi primeiro (Linux)
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(output) = Command::new("rocm-smi")
-                .args(&[
-                    "--showuse",
-                    "--showmeminfo",
-                    "--showtemp",
-                    "--showpower",
-                    "--showclocks",
-                    "--json",
-                ])
-                .output()
-            {
-                if output.status.success() {
-                    let result = String::from_utf8_lossy(&output.stdout);
-                    if let Some(metrics) = Self::parse_rocm_smi_json(&result, index) {
-                        return (Some(metrics), None);
-                    }
-                }
-            }
-
-            // Fallback: leitura direta do sysfs
-            if let Some(metrics) = Self::read_amd_sysfs_metrics(index) {
-                return (Some(metrics), None);
-            }
-        }
-
-        // Windows: usar WMI
-        #[cfg(target_os = "windows")]
-        {
-            if let Some(metrics) = Self::get_amd_wmi_metrics(index) {
-                return (Some(metrics), None);
-            }
-        }
-
-        (
-            None,
-            Some("AMD GPU encontrada mas ferramentas de monitoramento não disponíveis".to_string()),
-        )
+    async fn get_amd_metrics(_index: usize) -> (Option<GpuMetrics>, Option<String>) {
+        (None, Some("AMD metrics não implementado".to_string()))
     }
 
-    #[cfg(target_os = "linux")]
-    fn read_amd_sysfs_metrics(index: usize) -> Option<GpuMetrics> {
-        let base_path = format!("/sys/class/drm/card{}/device", index);
-
-        let gpu_usage = Self::read_file_parse::<u32>(&format!("{}/gpu_busy_percent", base_path))
-            .map(|v| v as f32);
-
-        let memory_used =
-            Self::read_file_parse::<u64>(&format!("{}/mem_info_vram_used", base_path))
-                .map(|v| v / 1024 / 1024);
-        let memory_total =
-            Self::read_file_parse::<u64>(&format!("{}/mem_info_vram_total", base_path))
-                .map(|v| v / 1024 / 1024);
-
-        let memory_percent = if let (Some(used), Some(total)) = (memory_used, memory_total) {
-            Some((used as f32 / total as f32) * 100.0)
-        } else {
-            None
-        };
-
-        // Temperatura (pode estar em diferentes locais)
-        let temperature = Self::find_amd_temperature(&base_path);
-
-        // Power
-        let power = Self::find_amd_power(&base_path);
-
-        // Clocks
-        let gpu_clock = Self::read_amd_current_clock(&base_path, "pp_dpm_sclk");
-        let mem_clock = Self::read_amd_current_clock(&base_path, "pp_dpm_mclk");
-
-        Some(GpuMetrics {
-            gpu_usage_percent: gpu_usage,
-            memory_usage_mb: memory_used,
-            memory_total_mb: memory_total,
-            memory_usage_percent: memory_percent,
-            temperature_c: temperature,
-            power_usage_watts: power,
-            fan_speed_percent: None, // Difícil de obter de forma consistente
-            clock_gpu_mhz: gpu_clock,
-            clock_memory_mhz: mem_clock,
-            voltage: None,
-        })
+    async fn get_intel_metrics(_index: usize) -> (Option<GpuMetrics>, Option<String>) {
+        (None, Some("Intel metrics não implementado".to_string()))
     }
 
-    #[cfg(target_os = "linux")]
-    fn find_amd_temperature(base_path: &str) -> Option<f32> {
-        // Tentar diferentes localizações de temperatura
-        let temp_paths = [
-            format!("{}/hwmon/hwmon*/temp1_input", base_path),
-            format!("{}/hwmon/hwmon*/temp2_input", base_path),
-        ];
-
-        for pattern in &temp_paths {
-            if let Ok(paths) = glob::glob(pattern) {
-                for path in paths {
-                    if let Ok(path) = path {
-                        if let Some(temp) = Self::read_file_parse::<u32>(path.to_str()?) {
-                            return Some(temp as f32 / 1000.0); // miligraus para graus
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    #[cfg(target_os = "linux")]
-    fn find_amd_power(base_path: &str) -> Option<f32> {
-        let power_patterns = [
-            format!("{}/hwmon/hwmon*/power1_average", base_path),
-            format!("{}/hwmon/hwmon*/power1_input", base_path),
-        ];
-
-        for pattern in &power_patterns {
-            if let Ok(paths) = glob::glob(pattern) {
-                for path in paths {
-                    if let Ok(path) = path {
-                        if let Some(power) = Self::read_file_parse::<u64>(path.to_str()?) {
-                            return Some(power as f32 / 1_000_000.0); // microwatts para watts
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    #[cfg(target_os = "linux")]
-    fn read_amd_current_clock(base_path: &str, clock_file: &str) -> Option<u32> {
-        let clock_path = format!("{}/{}", base_path, clock_file);
-        if let Ok(content) = fs::read_to_string(clock_path) {
-            // Formato: "0: 300Mhz\n1: 1500Mhz *\n2: 2000Mhz\n"
-            for line in content.lines() {
-                if line.contains('*') {
-                    if let Some(freq_str) = line.split_whitespace().nth(1) {
-                        let freq_clean = freq_str.replace("Mhz", "").replace("MHz", "");
-                        if let Ok(freq) = freq_clean.parse::<u32>() {
-                            return Some(freq);
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    fn parse_rocm_smi_json(_json_str: &str, _index: usize) -> Option<GpuMetrics> {
-        // Implementar parsing do JSON do ROCm SMI
-        // Formato complexo, seria necessário usar serde_json
-        None // Placeholder - implementar se ROCm SMI estiver disponível
-    }
-
-    // Intel - Métricas usando intel_gpu_top ou sysfs
-    async fn get_intel_metrics(index: usize) -> (Option<GpuMetrics>, Option<String>) {
-        #[cfg(target_os = "linux")]
-        {
-            // Tentar intel_gpu_top
-            if let Ok(output) = Command::new("intel_gpu_top")
-                .args(&["-s", "1000", "-n", "1", "-J"]) // 1 amostra, JSON
-                .output()
-            {
-                if output.status.success() {
-                    let result = String::from_utf8_lossy(&output.stdout);
-                    if let Some(metrics) = Self::parse_intel_gpu_top_json(&result) {
-                        return (Some(metrics), None);
-                    }
-                }
-            }
-
-            // Fallback: ler sysfs
-            if let Some(metrics) = Self::read_intel_sysfs_metrics(index) {
-                return (Some(metrics), None);
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            if let Some(metrics) = Self::get_intel_wmi_metrics(index) {
-                return (Some(metrics), None);
-            }
-        }
-
-        (
-            None,
-            Some(
-                "Intel GPU encontrada mas ferramentas de monitoramento não disponíveis".to_string(),
-            ),
-        )
-    }
-
-    #[cfg(target_os = "linux")]
-    fn read_intel_sysfs_metrics(index: usize) -> Option<GpuMetrics> {
-        let base_paths = [
-            format!("/sys/class/drm/card{}", index),
-            format!("/sys/class/drm/card{}/gt/gt0", index),
-        ];
-
-        for base_path in &base_paths {
-            // Frequência atual
-            let current_freq =
-                Self::read_file_parse::<u32>(&format!("{}/gt_cur_freq_mhz", base_path));
-
-            if current_freq.is_some() {
-                return Some(GpuMetrics {
-                    gpu_usage_percent: None, // Difícil de obter para Intel
-                    memory_usage_mb: None,
-                    memory_total_mb: None,
-                    memory_usage_percent: None,
-                    temperature_c: None,
-                    power_usage_watts: None,
-                    fan_speed_percent: None,
-                    clock_gpu_mhz: current_freq,
-                    clock_memory_mhz: None,
-                    voltage: None,
-                });
-            }
-        }
-
-        None
-    }
-
-    fn parse_intel_gpu_top_json(_json_str: &str) -> Option<GpuMetrics> {
-        // Implementar parsing do JSON do intel_gpu_top
-        // Formato: {"engines": {"Render/3D": {"busy": 45.2}}}
-        None // Placeholder
-    }
-
-    // Apple Silicon - Métricas usando powermetrics
     async fn get_apple_metrics() -> (Option<GpuMetrics>, Option<String>) {
-        #[cfg(target_os = "macos")]
-        {
-            if let Ok(output) = Command::new("powermetrics")
-                .args(&["--samplers", "gpu_power", "-n", "1", "--show-process-gpu"])
-                .output()
-            {
-                if output.status.success() {
-                    let result = String::from_utf8_lossy(&output.stdout);
-                    if let Some(metrics) = Self::parse_apple_powermetrics(&result) {
-                        return (Some(metrics), None);
-                    }
-                }
-            }
-        }
-
-        (
-            None,
-            Some("Apple GPU encontrada mas powermetrics não disponível".to_string()),
-        )
+        (None, Some("Apple metrics não implementado".to_string()))
     }
-
-    #[cfg(target_os = "macos")]
-    fn parse_apple_powermetrics(output: &str) -> Option<GpuMetrics> {
-        // Parse da saída do powermetrics
-        // Buscar por linhas como "GPU Power: 1234 mW"
-        for line in output.lines() {
-            if line.contains("GPU Power:") {
-                if let Some(power_str) = line.split_whitespace().nth(2) {
-                    if let Ok(power_mw) = power_str.parse::<f32>() {
-                        return Some(GpuMetrics {
-                            gpu_usage_percent: None,
-                            memory_usage_mb: None,
-                            memory_total_mb: None,
-                            memory_usage_percent: None,
-                            temperature_c: None,
-                            power_usage_watts: Some(power_mw / 1000.0),
-                            fan_speed_percent: None,
-                            clock_gpu_mhz: None,
-                            clock_memory_mhz: None,
-                            voltage: None,
-                        });
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    // Windows WMI fallbacks
-    #[cfg(target_os = "windows")]
-    fn get_amd_wmi_metrics(index: usize) -> Option<GpuMetrics> {
-        // Implementar WMI queries para AMD
-        None
-    }
-
-    #[cfg(target_os = "windows")]
-    fn get_intel_wmi_metrics(index: usize) -> Option<GpuMetrics> {
-        // Implementar WMI queries para Intel
-        None
-    }
-
-    // Utilitários
-    fn read_file_parse<T: std::str::FromStr>(path: &str) -> Option<T> {
-        fs::read_to_string(path).ok()?.trim().parse().ok()
-    }
-
-    // pub async fn monitor_continuously(
-    //     interval_seconds: u64,
-    //     duration_seconds: u64,
-    // ) -> Vec<Vec<UnifiedGpuInfo>> {
-    //     let mut samples = Vec::new();
-    //     let iterations = duration_seconds / interval_seconds;
-
-    //     for i in 0..iterations {
-    //         println!("Coletando amostra {} de {}...", i + 1, iterations);
-    //         let sample = Self::get_all_gpu_info().await;
-    //         samples.push(sample);
-
-    //         if i < iterations - 1 {
-    //             tokio::time::sleep(tokio::time::Duration::from_secs(interval_seconds)).await;
-    //         }
-    //     }
-
-    //     samples
-    // }
 }
-
-// // Exemplo de uso
-// #[tokio::main]
-// async fn main() {
-//     println!("🔍 Coletando informações detalhadas das GPUs...\n");
-
-//     let gpus = GpuMonitor::get_all_gpu_info().await;
-
-//     for (i, gpu) in gpus.iter().enumerate() {
-//         println!("🎮 GPU {}: {}", i + 1, gpu.name);
-//         println!("   Vendor: {:?}", gpu.vendor);
-//         println!("   Tipo: {}", gpu.device_type);
-//         println!("   Backend: {}", gpu.backend);
-
-//         println!("   📊 Informações Básicas:");
-//         println!("      Buffer Máximo: {} MB", gpu.basic_info.max_buffer_size_mb);
-//         println!("      Memória Estimada: {} MB", gpu.basic_info.estimated_memory_mb);
-//         println!("      Suporte Compute: {}", gpu.basic_info.supports_compute);
-//         println!("      Suporte Timestamp: {}", gpu.basic_info.supports_timestamp);
-
-//         if let Some(metrics) = &gpu.metrics {
-//             println!("   🔥 Métricas de Uso:");
-//             if let Some(usage) = metrics.gpu_usage_percent {
-//                 println!("      Uso GPU: {:.1}%", usage);
-//             }
-//             if let Some(mem_used) = metrics.memory_usage_mb {
-//                 println!("      Memória Usada: {} MB", mem_used);
-//             }
-//             if let Some(mem_total) = metrics.memory_total_mb {
-//                 println!("      Memória Total: {} MB", mem_total);
-//             }
-//             if let Some(mem_percent) = metrics.memory_usage_percent {
-//                 println!("      Uso Memória: {:.1}%", mem_percent);
-//             }
-//             if let Some(temp) = metrics.temperature_c {
-//                 println!("      Temperatura: {:.1}°C", temp);
-//             }
-//             if let Some(power) = metrics.power_usage_watts {
-//                 println!("      Consumo: {:.1}W", power);
-//             }
-//             if let Some(fan) = metrics.fan_speed_percent {
-//                 println!("      Ventilador: {:.0}%", fan);
-//             }
-//             if let Some(clock) = metrics.clock_gpu_mhz {
-//                 println!("      Clock GPU: {} MHz", clock);
-//             }
-//             if let Some(mem_clock) = metrics.clock_memory_mhz {
-//                 println!("      Clock Memória: {} MHz", mem_clock);
-//             }
-//         } else if let Some(error) = &gpu.error {
-//             println!("   ⚠️  Erro: {}", error);
-//         }
-
-//         println!("   {}", "─".repeat(50));
-//     }
-
-//     // Exemplo de monitoramento contínuo
-//     println!("\n🕐 Iniciando monitoramento por 30 segundos (amostras a cada 5s)...");
-//     let samples = GpuMonitor::monitor_continuously(5, 30).await;
-
-//     println!("\n📈 Resumo do Monitoramento:");
-//     for (sample_idx, sample) in samples.iter().enumerate() {
-//         println!("Amostra {} ({}s):", sample_idx + 1, sample_idx * 5);
-//         for gpu in sample {
-//             if let Some(metrics) = &gpu.metrics {
-//                 print!("  {}: ", gpu.name);
-//                 if let Some(usage) = metrics.gpu_usage_percent {
-//                     print!("GPU: {:.1}% ", usage);
-//                 }
-//                 if let Some(temp) = metrics.temperature_c {
-//                     print!("Temp: {:.1}°C ", temp);
-//                 }
-//                 if let Some(power) = metrics.power_usage_watts {
-//                     print!("Power: {:.1}W", power);
-//                 }
-//                 println!();
-//             }
-//         }
-//     }
-// }

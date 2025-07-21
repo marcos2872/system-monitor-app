@@ -91,6 +91,7 @@ export interface UnifiedGpuInfo {
   basicInfo: BasicGpuInfo;
   metrics?: GpuMetrics;
   error?: string;
+  is_primary: boolean;
 }
 
 export interface BasicGpuData {

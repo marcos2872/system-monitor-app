@@ -9,7 +9,7 @@ use crate::{monitor::SystemMetrics, monitor_gpu::UnifiedGpuInfo};
 #[tauri::command]
 async fn monitor_gpu() -> Result<Vec<UnifiedGpuInfo>, String> {
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    let monitor = GpuMonitor::get_all_gpu_info().await;
+    let monitor = GpuMonitor::get_unique_physical_gpus().await;
     Ok(monitor)
 }
 
