@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { SystemMetrics } from "./interfaces";
+import { SystemMetrics, UnifiedGpuInfo } from "./interfaces";
 import { MdMinimize, MdClose } from "react-icons/md";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 function App() {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+  const [metricsGpu, setMetricsGpu] = useState<UnifiedGpuInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const appWindow = getCurrentWindow();
@@ -22,9 +23,25 @@ function App() {
     }
   }
 
+  async function monitorGpu() {
+    try {
+      const monit: UnifiedGpuInfo[] = await invoke("monitor_gpu");
+      setMetricsGpu(monit);
+      setError(null);
+      if (loading) setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch metrics");
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     monitor();
-    const interval = setInterval(monitor, 1000);
+    monitorGpu();
+    const interval = setInterval(() => {
+      monitor();
+      monitorGpu();
+    }, 1000);
     return () => clearInterval(interval);
   }, [loading]);
 
@@ -74,7 +91,7 @@ function App() {
           </div>
         </div>
       </header>
-      <div className="flex-1 h-screen bg-gray-600 p-4 overflow-auto">
+      <div className="flex-1 h-screen bg-gray-600 p-4 pb-10 overflow-auto">
         <div className="max-w-6xl mx-auto space-y-6">
           {metrics && (
             <>
@@ -239,6 +256,37 @@ function App() {
                   </div>
                 </div>
               </section>
+            </>
+          )}
+          {metricsGpu.length > 0 && (
+            <>
+              {metricsGpu.map((gpu) => (
+                <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
+                  <h2 className="text-2xl font-bold text-white mb-4">
+                    CPU - {gpu.name}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
+                    {/* <div className="bg-gray-700 p-4 rounded">
+                    <p className="text-sm text-gray-300">Usage</p>
+                    <p className="text-2xl font-bold">
+                      {metrics.cpu.usage_percent.toFixed(2)}%
+                    </p>
+                  </div> */}
+                    {/* <div className="bg-gray-700 p-4 rounded">
+                    <p className="text-sm text-gray-300">Cores</p>
+                    <p className="text-2xl font-bold">
+                      {metrics.cpu.core_count}
+                    </p>
+                  </div> */}
+                    {/* <div className="bg-gray-700 p-4 rounded">
+                    <p className="text-sm text-gray-300">Frequency</p>
+                    <p className="text-2xl font-bold">
+                      {metrics.cpu.frequency} MHz
+                    </p>
+                  </div> */}
+                  </div>
+                </section>
+              ))}
             </>
           )}
         </div>

@@ -54,3 +54,52 @@ export interface SystemMetrics {
   uptime: number;
   load_average: [number, number, number];
 }
+
+export enum GpuVendor {
+  Nvidia = "Nvidia",
+  Amd = "Amd",
+  Intel = "Intel",
+  Apple = "Apple",
+  Unknown = "Unknown",
+}
+
+export interface BasicGpuInfo {
+  maxBufferSizeMb: number;
+  estimatedMemoryMb: number;
+  supportsCompute: boolean;
+  supportsTimestamp: boolean;
+}
+
+export interface GpuMetrics {
+  gpuUsagePercent?: number;
+  memoryUsageMb?: number;
+  memoryTotalMb?: number;
+  memoryUsagePercent?: number;
+  temperatureC?: number;
+  powerUsageWatts?: number;
+  fanSpeedPercent?: number;
+  clockGpuMhz?: number;
+  clockMemoryMhz?: number;
+  voltage?: number;
+}
+
+export interface UnifiedGpuInfo {
+  name: string;
+  vendor: GpuVendor;
+  deviceType: string;
+  backend: string;
+  basicInfo: BasicGpuInfo;
+  metrics?: GpuMetrics;
+  error?: string;
+}
+
+export interface BasicGpuData {
+  name: string;
+  vendor: GpuVendor;
+  deviceType: string;
+  backend: string;
+  maxBufferSizeMb: number;
+  estimatedMemoryMb: number;
+  supportsCompute: boolean;
+  supportsTimestamp: boolean;
+}

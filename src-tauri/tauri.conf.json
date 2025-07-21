@@ -14,7 +14,7 @@
       {
         "title": "System Monitor",
         "width": 920,
-        "height": 1020,
+        "height": 980,
         "resizable": true,
         "fullscreen": false,
         "maximizable": false,

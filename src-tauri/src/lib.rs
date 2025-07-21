@@ -1,12 +1,16 @@
 mod monitor;
+mod monitor_gpu;
 
 use monitor::SystemMonitor;
+use monitor_gpu::GpuMonitor;
 
-use crate::monitor::SystemMetrics;
+use crate::{monitor::SystemMetrics, monitor_gpu::UnifiedGpuInfo};
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+async fn monitor_gpu() -> Result<Vec<UnifiedGpuInfo>, String> {
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let monitor = GpuMonitor::get_all_gpu_info().await;
+    Ok(monitor)
 }
 
 #[tauri::command]
@@ -21,7 +25,7 @@ async fn monitor_sys() -> Result<SystemMetrics, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, monitor_sys])
+        .invoke_handler(tauri::generate_handler![monitor_gpu, monitor_sys])
         .setup(|_app| Ok(()))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
