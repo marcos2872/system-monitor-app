@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+.no-hover-scroll {
+  pointer-events: auto;
+}
+
+.no-hover-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.no-hover-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.no-hover-scroll::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 4px;
+}
+
+.no-hover-scroll::-webkit-scrollbar-thumb:hover {
+  background: #2d3748;
+}
+
+/* Disable scroll on hover for the container */
+.scroll-container {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4a5568 transparent;
+}
+
+/* Disable wheel events except when explicitly clicking and dragging */
+.scroll-container {
+  overscroll-behavior: none;
+}
+
+.scroll-container:not(:active) {
+  overflow-y: hidden;
+}
+
+.scroll-container:hover:not(:active) {
+  overflow-y: auto;
+}

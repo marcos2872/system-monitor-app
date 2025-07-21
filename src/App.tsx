@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { SystemMetrics, UnifiedGpuInfo } from "./interfaces";
+import { SystemMetrics } from "./interfaces";
 import { MdMinimize, MdClose } from "react-icons/md";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { CpuUsage } from "./componets/cpu";
+import { MemoryUsage } from "./componets/memory";
+import { DiskUsage } from "./componets/disk";
+import { NetworkUsage } from "./componets/network";
+import { SystemInfo } from "./componets/system";
 
 function App() {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-  const [metricsGpu, setMetricsGpu] = useState<UnifiedGpuInfo[]>([]);
+  // const [metricsGpu, setMetricsGpu] = useState<UnifiedGpuInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const appWindow = getCurrentWindow();
@@ -23,24 +28,24 @@ function App() {
     }
   }
 
-  async function monitorGpu() {
-    try {
-      const monit: UnifiedGpuInfo[] = await invoke("monitor_gpu");
-      setMetricsGpu(monit);
-      setError(null);
-      if (loading) setLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch metrics");
-      setLoading(false);
-    }
-  }
+  // async function monitorGpu() {
+  //   try {
+  //     const monit: UnifiedGpuInfo[] = await invoke("monitor_gpu");
+  //     setMetricsGpu(monit);
+  //     setError(null);
+  //     if (loading) setLoading(false);
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : "Failed to fetch metrics");
+  //     setLoading(false);
+  //   }
+  // }
 
   useEffect(() => {
     monitor();
-    monitorGpu();
+    // monitorGpu();
     const interval = setInterval(() => {
       monitor();
-      monitorGpu();
+      // monitorGpu();
     }, 1000);
     return () => clearInterval(interval);
   }, [loading]);
@@ -91,204 +96,179 @@ function App() {
           </div>
         </div>
       </header>
-      <div className="flex-1 h-screen bg-gray-600 p-4 pb-10 overflow-auto">
+      <div className="flex-1 h-screen bg-gray-600 p-4 pb-12 scroll-container">
         <div className="max-w-6xl mx-auto space-y-6">
           {metrics && (
             <>
               {/* CPU Metrics */}
-              <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                <h2 className="text-2xl font-bold text-white mb-4">
-                  CPU - {metrics.cpu.name}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Usage</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.cpu.usage_percent.toFixed(2)}%
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Cores</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.cpu.core_count}
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Frequency</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.cpu.frequency} MHz
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <CpuUsage data={metrics.cpu} />
 
               {/* Memory Metrics */}
-              <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                <h2 className="text-2xl font-bold text-white mb-4">Memory</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Usage</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.memory.usage_percent.toFixed(2)}%
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Used</p>
-                    <p className="text-2xl font-bold">
-                      {(
-                        metrics.memory.used_memory /
-                        1024 /
-                        1024 /
-                        1024
-                      ).toFixed(2)}{" "}
-                      GB
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Total</p>
-                    <p className="text-2xl font-bold">
-                      {(
-                        metrics.memory.total_memory /
-                        1024 /
-                        1024 /
-                        1024
-                      ).toFixed(2)}{" "}
-                      GB
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <MemoryUsage data={metrics.memory} />
 
               {/* Disk Metrics */}
-              <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                <h2 className="text-2xl font-bold text-white mb-4">Disk</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Total Space</p>
-                    <p className="text-2xl font-bold">
-                      {(metrics.disk.total_space / 1024 / 1024 / 1024).toFixed(
-                        2,
-                      )}{" "}
-                      GB
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Used Space</p>
-                    <p className="text-2xl font-bold">
-                      {(metrics.disk.used_space / 1024 / 1024 / 1024).toFixed(
-                        2,
-                      )}{" "}
-                      GB
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Available</p>
-                    <p className="text-2xl font-bold">
-                      {(
-                        metrics.disk.available_space /
-                        1024 /
-                        1024 /
-                        1024
-                      ).toFixed(2)}{" "}
-                      GB
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <DiskUsage data={metrics.disk} />
 
               {/* Network Metrics */}
-              <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                <h2 className="text-2xl font-bold text-white mb-4">Network</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white">
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Download Speed</p>
-                    <p className="text-2xl font-bold">
-                      {(() => {
-                        const bytesPerSec =
-                          metrics.network.total_bytes_received / 2;
-                        if (bytesPerSec < 1024)
-                          return `${bytesPerSec.toFixed(2)} B/s`;
-                        if (bytesPerSec < 1024 * 1024)
-                          return `${(bytesPerSec / 1024).toFixed(2)} KB/s`;
-                        return `${(bytesPerSec / 1024 / 1024).toFixed(2)} MB/s`;
-                      })()}
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Upload Speed</p>
-                    <p className="text-2xl font-bold">
-                      {(() => {
-                        const bytesPerSec =
-                          metrics.network.total_bytes_transmitted / 2;
-                        if (bytesPerSec < 1024)
-                          return `${bytesPerSec.toFixed(2)} B/s`;
-                        if (bytesPerSec < 1024 * 1024)
-                          return `${(bytesPerSec / 1024).toFixed(2)} KB/s`;
-                        return `${(bytesPerSec / 1024 / 1024).toFixed(2)} MB/s`;
-                      })()}
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <NetworkUsage data={metrics.network} />
 
               {/* System Info */}
-              <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
-                <h2 className="text-2xl font-bold text-white mb-4">System</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Uptime</p>
-                    <p className="text-2xl font-bold">
-                      {Math.floor(metrics.uptime / 3600)}h{" "}
-                      {Math.floor((metrics.uptime % 3600) / 60)}m
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Load Average (1m)</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.load_average[0].toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Load Average (5m)</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.load_average[1].toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <SystemInfo data={metrics} />
             </>
           )}
-          {metricsGpu.length > 0 && (
+          {/* {metricsGpu.length > 0 && (
             <>
-              {metricsGpu.map((gpu) => (
-                <section className="bg-gray-800 rounded-lg p-6 shadow-lg">
+              {metricsGpu.map((gpu, index) => (
+                <section
+                  key={index}
+                  className="bg-gray-800 rounded-lg p-6 shadow-lg"
+                >
                   <h2 className="text-2xl font-bold text-white mb-4">
-                    CPU - {gpu.name}
+                    GPU - {gpu.name}{" "}
+                    {gpu.is_primary && (
+                      <span className="text-green-400">(Primary)</span>
+                    )}
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-                    {/* <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Usage</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.cpu.usage_percent.toFixed(2)}%
-                    </p>
-                  </div> */}
-                    {/* <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Cores</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.cpu.core_count}
-                    </p>
-                  </div> */}
-                    {/* <div className="bg-gray-700 p-4 rounded">
-                    <p className="text-sm text-gray-300">Frequency</p>
-                    <p className="text-2xl font-bold">
-                      {metrics.cpu.frequency} MHz
-                    </p>
-                  </div> */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-white mb-4">
+                    <div className="bg-gray-700 p-4 rounded">
+                      <p className="text-sm text-gray-300">Vendor</p>
+                      <p className="text-lg font-bold">{gpu.vendor}</p>
+                    </div>
+                    <div className="bg-gray-700 p-4 rounded">
+                      <p className="text-sm text-gray-300">Device Type</p>
+                      <p className="text-lg font-bold">{gpu.deviceType}</p>
+                    </div>
+                    <div className="bg-gray-700 p-4 rounded">
+                      <p className="text-sm text-gray-300">Backend</p>
+                      <p className="text-lg font-bold">{gpu.backend}</p>
+                    </div>
+                    {gpu.basicInfo && (
+                      <div className="bg-gray-700 p-4 rounded">
+                        <p className="text-sm text-gray-300">Estimated Memory</p>
+                        <p className="text-lg font-bold">
+                          {(gpu.basicInfo.estimatedMemoryMb / 1024).toFixed(1)} GB
+                        </p>
+                      </div>
+                    )}
                   </div>
+
+                  {gpu.metrics && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
+                      {gpu.metrics.gpuUsagePercent !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">GPU Usage</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.gpuUsagePercent.toFixed(1)}%
+                          </p>
+                        </div>
+                      )}
+
+                      {gpu.metrics.memoryUsagePercent !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">Memory Usage</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.memoryUsagePercent.toFixed(1)}%
+                          </p>
+                          {gpu.metrics.memoryUsageMb !== undefined &&
+                            gpu.metrics.memoryTotalMb !== undefined && (
+                              <p className="text-sm text-gray-400">
+                                {(gpu.metrics.memoryUsageMb / 1024).toFixed(1)}{" "}
+                                GB /{" "}
+                                {(gpu.metrics.memoryTotalMb / 1024).toFixed(1)}{" "}
+                                GB
+                              </p>
+                            )}
+                        </div>
+                      )}
+
+                      {gpu.metrics.temperatureC !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">Temperature</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.temperatureC}°C
+                          </p>
+                        </div>
+                      )}
+
+                      {gpu.metrics.powerUsageWatts !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">Power Usage</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.powerUsageWatts}W
+                          </p>
+                        </div>
+                      )}
+
+                      {gpu.metrics.fanSpeedPercent !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">Fan Speed</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.fanSpeedPercent}%
+                          </p>
+                        </div>
+                      )}
+
+                      {gpu.metrics.clockGpuMhz !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">GPU Clock</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.clockGpuMhz} MHz
+                          </p>
+                        </div>
+                      )}
+
+                      {gpu.metrics.clockMemoryMhz !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">Memory Clock</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.clockMemoryMhz} MHz
+                          </p>
+                        </div>
+                      )}
+
+                      {gpu.metrics.voltage !== undefined && (
+                        <div className="bg-gray-700 p-4 rounded">
+                          <p className="text-sm text-gray-300">Voltage</p>
+                          <p className="text-2xl font-bold">
+                            {gpu.metrics.voltage}V
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {gpu.error && (
+                    <div className="bg-red-900 p-4 rounded mt-4">
+                      <p className="text-red-300 text-sm">Error: {gpu.error}</p>
+                    </div>
+                  )}
+
+                  {gpu.basicInfo && (
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
+                      <div className="bg-gray-700 p-4 rounded">
+                        <p className="text-sm text-gray-300">Max Buffer Size</p>
+                        <p className="text-lg font-bold">
+                          {(gpu.basicInfo.maxBufferSizeMb / 1024).toFixed(1)} GB
+                        </p>
+                      </div>
+                      <div className="bg-gray-700 p-4 rounded">
+                        <p className="text-sm text-gray-300">Compute Support</p>
+                        <p className="text-lg font-bold">
+                          {gpu.basicInfo.supportsCompute ? "Yes" : "No"}
+                        </p>
+                      </div>
+                      <div className="bg-gray-700 p-4 rounded">
+                        <p className="text-sm text-gray-300">Timestamp Support</p>
+                        <p className="text-lg font-bold">
+                          {gpu.basicInfo.supportsTimestamp ? "Yes" : "No"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </section>
               ))}
             </>
-          )}
+          )} */}
         </div>
       </div>
     </main>
