@@ -1,103 +1,103 @@
 import { useState, useEffect } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
-  const [trayNumber, setTrayNumber] = useState(0);
-  const [currentTrayNumber, setCurrentTrayNumber] = useState(0);
+  const [trayText, setTrayText] = useState("CPU-0%");
+  const [currentTrayText, setCurrentTrayText] = useState("CPU-0%");
+  const [textColor, setTextColor] = useState("#000000"); // Preto por padrão
 
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
     setGreetMsg(await invoke("greet", { name }));
   }
 
-  // Função para gerar ícone com número usando Canvas
-  function generateNumberIcon(number: number): Promise<Uint8Array> {
+  // Função para gerar ícone com texto curto
+  function generateTextIcon(text: string, color: string = textColor): Promise<Uint8Array> {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
-      canvas.width = 32;
-      canvas.height = 32;
+      canvas.width = 64;
+      canvas.height = 64;
       const ctx = canvas.getContext('2d')!;
+
+      // Limpar com transparente
+      ctx.clearRect(0, 0, 64, 64);
+
+      // Pegar apenas 3 caracteres para fonte ainda maior
+      const shortText = text.substring(0, 3);
       
-      // Fundo com gradiente sutil
-      const gradient = ctx.createLinearGradient(0, 0, 32, 32);
-      gradient.addColorStop(0, '#4a4a4a');
-      gradient.addColorStop(1, '#2a2a2a');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 32, 32);
-      
-      // Borda arredondada
-      ctx.strokeStyle = '#666';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(1, 1, 30, 30);
-      
-      // Texto do número
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 18px Arial, sans-serif';
+      console.log('Desenhando texto:', shortText, 'do original:', text, 'cor:', textColor);
+
+      // Fonte MUITO maior
+      ctx.fillStyle = color;
+      ctx.font = 'bold 32px monospace'; 
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Limitar o número a 3 dígitos para caber no ícone
-      const displayNumber = number > 999 ? '999+' : number.toString();
+      // Desenhar o texto centralizado
+      ctx.fillText(shortText, 32, 32);
+
+      const imageData = ctx.getImageData(0, 0, 64, 64);
+      console.log('Texto renderizado:', shortText);
       
-      // Ajustar tamanho da fonte se necessário
-      if (displayNumber.length > 2) {
-        ctx.font = 'bold 14px Arial, sans-serif';
-      }
-      
-      ctx.fillText(displayNumber, 16, 16);
-      
-      // Converter para ImageData e extrair bytes RGBA
-      const imageData = ctx.getImageData(0, 0, 32, 32);
       resolve(new Uint8Array(imageData.data));
     });
   }
 
-  async function updateTrayNumber() {
+  async function updateTrayText() {
     try {
+      // Gerar o ícone com o novo texto
+      const iconData = await generateTextIcon(trayText, textColor);
+      
       // Atualizar o estado no backend
-      await invoke("update_tray_number", { number: trayNumber });
-      // Atualizar o estado local (que vai automaticamente atualizar o ícone via useEffect)
-      setCurrentTrayNumber(trayNumber);
+      await invoke("update_tray_text", { text: trayText });
+      
+      // Atualizar o ícone
+      await invoke("update_tray_icon", { iconData: Array.from(iconData) });
+      
+      // Atualizar o estado local
+      setCurrentTrayText(trayText);
+      
+      console.log('Texto atualizado com sucesso:', trayText);
     } catch (error) {
-      console.error("Erro ao atualizar número do tray:", error);
+      console.error("Erro ao atualizar texto do tray:", error);
     }
   }
 
-  async function getCurrentTrayNumber() {
+  async function getCurrentTrayText() {
     try {
-      const number = await invoke("get_tray_number") as number;
-      setCurrentTrayNumber(number);
-      setTrayNumber(number);
+      const text = await invoke("get_tray_text") as string;
+      setCurrentTrayText(text);
+      setTrayText(text);
     } catch (error) {
-      console.error("Erro ao buscar número do tray:", error);
+      console.error("Erro ao buscar texto do tray:", error);
     }
   }
+
 
   // Inicializar ícone quando o componente montar
   useEffect(() => {
     const initializeIcon = async () => {
-      await getCurrentTrayNumber();
-      // Gerar ícone inicial com o número carregado
-      const iconData = await generateNumberIcon(currentTrayNumber);
+      await getCurrentTrayText();
+      // Gerar ícone inicial com o texto carregado
+      const iconData = await generateTextIcon(currentTrayText, textColor);
       try {
         await invoke("update_tray_icon", { iconData: Array.from(iconData) });
       } catch (error) {
         console.error("Erro ao inicializar ícone:", error);
       }
     };
-    
+
     initializeIcon();
   }, []);
 
-  // Atualizar ícone quando currentTrayNumber mudar
+  // Atualizar ícone quando currentTrayText mudar
   useEffect(() => {
     const updateIcon = async () => {
-      if (currentTrayNumber !== undefined) {
-        const iconData = await generateNumberIcon(currentTrayNumber);
+      if (currentTrayText !== undefined && currentTrayText !== '') {
+        const iconData = await generateTextIcon(currentTrayText, textColor);
         try {
           await invoke("update_tray_icon", { iconData: Array.from(iconData) });
         } catch (error) {
@@ -105,9 +105,9 @@ function App() {
         }
       }
     };
-    
+
     updateIcon();
-  }, [currentTrayNumber]);
+  }, [currentTrayText]);
 
   return (
     <main className="container">
@@ -115,31 +115,73 @@ function App() {
 
       <div className="card">
         <h2>Controle do Ícone do Tray</h2>
-        <p>Número atual no tray: <strong>{currentTrayNumber}</strong></p>
-        
+        <p>Texto atual no tray: <strong>{currentTrayText}</strong></p>
+
         <form
           className="row"
           onSubmit={(e) => {
             e.preventDefault();
-            updateTrayNumber();
+            updateTrayText();
           }}
         >
           <input
-            type="number"
-            value={trayNumber}
-            onChange={(e) => setTrayNumber(parseInt(e.currentTarget.value) || 0)}
-            placeholder="Digite um número"
-            min="0"
-            max="999"
+            type="text"
+            value={trayText}
+            onChange={(e) => setTrayText(e.currentTarget.value)}
+            placeholder="Ex: CPU-13% MEM-23GB"
+            maxLength={50}
+            style={{ minWidth: '250px' }}
           />
           <button type="submit">Atualizar Ícone</button>
         </form>
-        
-        <p className="info">
-          O ícone mostra o número digitado (até 999).
-          <br />
-          Números maiores que 999 aparecerão como "999+".
-        </p>
+
+        <div className="color-controls">
+          <label>Cor do texto:</label>
+          <div className="color-options">
+            <button 
+              type="button"
+              className={`color-btn ${textColor === '#000000' ? 'active' : ''}`}
+              onClick={() => setTextColor('#000000')}
+              style={{ backgroundColor: '#000000' }}
+            >
+              Preto
+            </button>
+            <button 
+              type="button"
+              className={`color-btn ${textColor === '#ffffff' ? 'active' : ''}`}
+              onClick={() => setTextColor('#ffffff')}
+              style={{ backgroundColor: '#ffffff', color: '#000' }}
+            >
+              Branco
+            </button>
+            <button 
+              type="button"
+              className={`color-btn ${textColor === '#ff0000' ? 'active' : ''}`}
+              onClick={() => setTextColor('#ff0000')}
+              style={{ backgroundColor: '#ff0000' }}
+            >
+              Vermelho
+            </button>
+          </div>
+        </div>
+
+
+        <div className="examples">
+          <p className="info">
+            <strong>Exemplos de textos:</strong><br />
+            • CPU-13% MEM-23GB<br />
+            • Server Online<br />
+            • 42 Users Connected<br />
+            • Temp: 45°C Fan: 80%<br />
+          </p>
+          <p className="info">
+            ✨ <strong>ÍCONE COM TEXTO GRANDE:</strong> Fundo branco, texto preto<br />
+            📐 Ícone 128x128px para máxima legibilidade<br />
+            🔤 Fonte grande (24px linha única, 18px duas linhas)<br />
+            📝 Até 2 linhas com ~10 caracteres cada<br />
+            💡 Digite "CPU 45%" ou "MEM 8GB" e clique "Atualizar Ícone"
+          </p>
+        </div>
       </div>
 
       <div className="card">
