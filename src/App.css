@@ -95,6 +95,32 @@ button {
   margin-right: 5px;
 }
 
+.card {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 400px;
+  backdrop-filter: blur(10px);
+}
+
+.card h2 {
+  margin-top: 0;
+  color: #396cd8;
+}
+
+.info {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 15px;
+}
+
+input[type="number"] {
+  margin-right: 10px;
+  width: 150px;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;

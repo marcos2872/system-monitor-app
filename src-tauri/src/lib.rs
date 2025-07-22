@@ -3,6 +3,14 @@ use tauri::{
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     Manager, Runtime,
 };
+use std::sync::{Arc, Mutex};
+
+// Estado global do app
+#[derive(Default)]
+struct AppState {
+    tray_number: Arc<Mutex<i32>>,
+}
+
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -17,6 +25,39 @@ fn show_main_window(window: tauri::Window) {
 #[tauri::command]
 fn hide_main_window(window: tauri::Window) {
     window.get_webview_window("main").unwrap().hide().unwrap();
+}
+
+#[tauri::command]
+fn update_tray_icon(
+    app_handle: tauri::AppHandle,
+    icon_data: Vec<u8>,
+) -> Result<(), String> {
+    // Atualizar o ícone do tray com os dados recebidos do frontend
+    if let Some(tray) = app_handle.tray_by_id("main-tray") {
+        let icon = tauri::image::Image::new_owned(icon_data, 32, 32);
+        tray.set_icon(Some(icon))
+            .map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn update_tray_number(
+    state: tauri::State<AppState>,
+    number: i32,
+) -> Result<(), String> {
+    // Apenas atualizar o estado, o ícone é gerado no frontend
+    let mut tray_number = state.tray_number.lock().map_err(|e| e.to_string())?;
+    *tray_number = number;
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn get_tray_number(state: tauri::State<AppState>) -> Result<i32, String> {
+    let tray_number = state.tray_number.lock().map_err(|e| e.to_string())?;
+    Ok(*tray_number)
 }
 
 fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
@@ -35,7 +76,15 @@ fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, show_main_window, hide_main_window])
+        .manage(AppState::default())
+        .invoke_handler(tauri::generate_handler![
+            greet, 
+            show_main_window, 
+            hide_main_window,
+            update_tray_number,
+            update_tray_icon,
+            get_tray_number
+        ])
         .setup(|app| {
             let menu = create_tray_menu(&app.handle())?;
             

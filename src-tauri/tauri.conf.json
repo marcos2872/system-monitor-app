@@ -22,7 +22,7 @@
     "security": {
       "csp": null
     },
-    "systemTray": {
+    "trayIcon": {
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
       "menuOnLeftClick": false,
