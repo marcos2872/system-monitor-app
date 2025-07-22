@@ -1,0 +1,16 @@
+{
+  "tasks": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["dom", "dom.iterable", "es6"],
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler"
+  }
+}

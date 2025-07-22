@@ -14,11 +14,19 @@
       {
         "title": "system-monitor-app",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "visible": false,
+        "skipTaskbar": true
       }
     ],
     "security": {
       "csp": null
+    },
+    "systemTray": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false,
+      "tooltip": "System Monitor"
     }
   },
   "bundle": {
