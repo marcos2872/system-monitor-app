@@ -3,16 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
   const [trayText, setTrayText] = useState("CPU-0%");
   const [currentTrayText, setCurrentTrayText] = useState("CPU-0%");
-  const [textColor, setTextColor] = useState("#000000"); // Preto por padrão
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const [textColor, setTextColor] = useState("#000000");
 
   // Função para gerar ícone com texto curto
   function generateTextIcon(text: string, color: string = textColor): Promise<Uint8Array> {
@@ -175,34 +168,15 @@ function App() {
             • Temp: 45°C Fan: 80%<br />
           </p>
           <p className="info">
-            ✨ <strong>ÍCONE COM TEXTO GRANDE:</strong> Fundo branco, texto preto<br />
-            📐 Ícone 128x128px para máxima legibilidade<br />
-            🔤 Fonte grande (24px linha única, 18px duas linhas)<br />
-            📝 Até 2 linhas com ~10 caracteres cada<br />
-            💡 Digite "CPU 45%" ou "MEM 8GB" e clique "Atualizar Ícone"
+            ✨ <strong>ÍCONE COM TEXTO:</strong> Fundo transparente, texto colorido<br />
+            📐 Ícone 64x64px para compatibilidade com tray<br />
+            🔤 Fonte grande (32px bold monospace)<br />
+            📝 Máximo 3 caracteres para legibilidade<br />
+            💡 Digite "CPU" ou "MEM" e escolha a cor do texto
           </p>
         </div>
       </div>
 
-      <div className="card">
-        <h2>Teste de Saudação</h2>
-        <form
-          className="row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            greet();
-          }}
-        >
-          <input
-            id="greet-input"
-            onChange={(e) => setName(e.currentTarget.value)}
-            placeholder="Digite um nome"
-            value={name}
-          />
-          <button type="submit">Cumprimentar</button>
-        </form>
-        <p>{greetMsg}</p>
-      </div>
     </main>
   );
 }

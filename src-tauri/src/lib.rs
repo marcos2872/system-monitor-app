@@ -11,20 +11,6 @@ struct AppState {
     tray_text: Arc<Mutex<String>>,
 }
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
-fn show_main_window(window: tauri::Window) {
-    window.get_webview_window("main").unwrap().show().unwrap();
-}
-
-#[tauri::command]
-fn hide_main_window(window: tauri::Window) {
-    window.get_webview_window("main").unwrap().hide().unwrap();
-}
 
 
 
@@ -58,10 +44,11 @@ fn get_tray_text(state: tauri::State<AppState>) -> Result<String, String> {
 
 fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
     let show_item = MenuItem::with_id(app, "show", "Abrir Interface", true, None::<&str>)?;
+    let hide_item = MenuItem::with_id(app, "hide", "Minimizar", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
     
     let menu = MenuBuilder::new(app)
-        .items(&[&show_item, &quit_item])
+        .items(&[&show_item, &hide_item, &quit_item])
         .build()?;
     
     Ok(menu)
@@ -73,9 +60,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
-            greet,
-            show_main_window,
-            hide_main_window,
             update_tray_text,
             update_tray_icon,
             get_tray_text
@@ -90,6 +74,10 @@ pub fn run() {
                         let window = app.get_webview_window("main").unwrap();
                         window.show().unwrap();
                         window.set_focus().unwrap();
+                    }
+                    "hide" => {
+                        let window = app.get_webview_window("main").unwrap();
+                        window.hide().unwrap();
                     }
                     "quit" => {
                         app.exit(0);
