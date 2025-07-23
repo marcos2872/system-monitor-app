@@ -5,36 +5,48 @@ import "./App.css";
 function App() {
   const [trayText, setTrayText] = useState("CPU-0%");
   const [currentTrayText, setCurrentTrayText] = useState("CPU-0%");
-  const [textColor, setTextColor] = useState("#000000");
+  const [textColor, setTextColor] = useState("#ffffff");
 
-  // Função para gerar ícone com texto curto
-  function generateTextIcon(text: string, color: string = textColor): Promise<Uint8Array> {
+  // Função para gerar ícone com texto
+  function generateTextIcon(
+    text: string,
+    color: string = textColor,
+  ): Promise<Uint8Array> {
     return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64;
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
       canvas.height = 64;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext("2d")!;
 
       // Limpar com transparente
-      ctx.clearRect(0, 0, 64, 64);
+      ctx.clearRect(0, 0, 256, 64);
 
-      // Pegar até 6 caracteres
-      const shortText = text.substring(0, 6);
-      
-      console.log('Desenhando texto:', shortText, 'do original:', text, 'cor:', textColor);
+      console.log("Desenhando texto:", text, "cor:", textColor);
 
-      // Fonte fixa em 32px para legibilidade
       ctx.fillStyle = color;
-      ctx.font = 'bold 32px monospace'; 
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Desenhar o texto centralizado
-      ctx.fillText(shortText, 32, 32);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
-      const imageData = ctx.getImageData(0, 0, 64, 64);
-      console.log('Texto renderizado:', shortText);
-      
+      // Calcular tamanho da fonte baseado no comprimento do texto
+      let fontSize = 32;
+      ctx.font = `${fontSize}px monospace`;
+
+      // Ajustar fonte dinamicamente para caber no canvas com mínimo de 20px
+      let textWidth = ctx.measureText(text).width;
+      const maxWidth = 248; // Deixar margem de 4px de cada lado
+
+      while (textWidth > maxWidth && fontSize > 20) {
+        fontSize -= 2;
+        ctx.font = `bold ${fontSize}px monospace`;
+        textWidth = ctx.measureText(text).width;
+      }
+
+      // Desenhar o texto centralizado
+      ctx.fillText(text, 128, 32);
+
+      const imageData = ctx.getImageData(0, 0, 256, 64);
+      console.log("Texto renderizado:", text, "com fonte:", fontSize + "px");
+
       resolve(new Uint8Array(imageData.data));
     });
   }
@@ -43,17 +55,21 @@ function App() {
     try {
       // Gerar o ícone com o novo texto
       const iconData = await generateTextIcon(trayText, textColor);
-      
+
       // Atualizar o estado no backend
       await invoke("update_tray_text", { text: trayText });
-      
-      // Atualizar o ícone
-      await invoke("update_tray_icon", { iconData: Array.from(iconData) });
-      
+
+      // Atualizar o ícone com dimensões fixas
+      await invoke("update_tray_icon", {
+        iconData: Array.from(iconData),
+        width: 256,
+        height: 64,
+      });
+
       // Atualizar o estado local
       setCurrentTrayText(trayText);
-      
-      console.log('Texto atualizado com sucesso:', trayText);
+
+      console.log("Texto atualizado com sucesso:", trayText);
     } catch (error) {
       console.error("Erro ao atualizar texto do tray:", error);
     }
@@ -61,7 +77,7 @@ function App() {
 
   async function getCurrentTrayText() {
     try {
-      const text = await invoke("get_tray_text") as string;
+      const text = (await invoke("get_tray_text")) as string;
       setCurrentTrayText(text);
       setTrayText(text);
     } catch (error) {
@@ -69,15 +85,19 @@ function App() {
     }
   }
 
-
   // Inicializar ícone quando o componente montar
   useEffect(() => {
     const initializeIcon = async () => {
       await getCurrentTrayText();
       // Gerar ícone inicial com o texto carregado
       const iconData = await generateTextIcon(currentTrayText, textColor);
+
       try {
-        await invoke("update_tray_icon", { iconData: Array.from(iconData) });
+        await invoke("update_tray_icon", {
+          iconData: Array.from(iconData),
+          width: 256,
+          height: 64,
+        });
       } catch (error) {
         console.error("Erro ao inicializar ícone:", error);
       }
@@ -89,10 +109,15 @@ function App() {
   // Atualizar ícone quando currentTrayText mudar
   useEffect(() => {
     const updateIcon = async () => {
-      if (currentTrayText !== undefined && currentTrayText !== '') {
+      if (currentTrayText !== undefined && currentTrayText !== "") {
         const iconData = await generateTextIcon(currentTrayText, textColor);
+
         try {
-          await invoke("update_tray_icon", { iconData: Array.from(iconData) });
+          await invoke("update_tray_icon", {
+            iconData: Array.from(iconData),
+            width: 256,
+            height: 64,
+          });
         } catch (error) {
           console.error("Erro ao atualizar ícone:", error);
         }
@@ -108,7 +133,9 @@ function App() {
 
       <div className="card">
         <h2>Controle do Ícone do Tray</h2>
-        <p>Texto atual no tray: <strong>{currentTrayText}</strong></p>
+        <p>
+          Texto atual no tray: <strong>{currentTrayText}</strong>
+        </p>
 
         <form
           className="row"
@@ -123,7 +150,7 @@ function App() {
             onChange={(e) => setTrayText(e.currentTarget.value)}
             placeholder="Ex: CPU-13% MEM-23GB"
             maxLength={50}
-            style={{ minWidth: '250px' }}
+            style={{ minWidth: "250px" }}
           />
           <button type="submit">Atualizar Ícone</button>
         </form>
@@ -131,52 +158,60 @@ function App() {
         <div className="color-controls">
           <label>Cor do texto:</label>
           <div className="color-options">
-            <button 
+            <button
               type="button"
-              className={`color-btn ${textColor === '#000000' ? 'active' : ''}`}
-              onClick={() => setTextColor('#000000')}
-              style={{ backgroundColor: '#000000' }}
+              className={`color-btn ${textColor === "#000000" ? "active" : ""}`}
+              onClick={() => setTextColor("#000000")}
+              style={{ backgroundColor: "#000000" }}
             >
               Preto
             </button>
-            <button 
+            <button
               type="button"
-              className={`color-btn ${textColor === '#ffffff' ? 'active' : ''}`}
-              onClick={() => setTextColor('#ffffff')}
-              style={{ backgroundColor: '#ffffff', color: '#000' }}
+              className={`color-btn ${textColor === "#ffffff" ? "active" : ""}`}
+              onClick={() => setTextColor("#ffffff")}
+              style={{ backgroundColor: "#ffffff", color: "#000" }}
             >
               Branco
             </button>
-            <button 
+            <button
               type="button"
-              className={`color-btn ${textColor === '#ff0000' ? 'active' : ''}`}
-              onClick={() => setTextColor('#ff0000')}
-              style={{ backgroundColor: '#ff0000' }}
+              className={`color-btn ${textColor === "#ff0000" ? "active" : ""}`}
+              onClick={() => setTextColor("#ff0000")}
+              style={{ backgroundColor: "#ff0000" }}
             >
               Vermelho
             </button>
           </div>
         </div>
 
-
         <div className="examples">
           <p className="info">
-            <strong>Exemplos de textos:</strong><br />
-            • CPU-13% MEM-23GB<br />
-            • Server Online<br />
-            • 42 Users Connected<br />
-            • Temp: 45°C Fan: 80%<br />
+            <strong>Exemplos de textos:</strong>
+            <br />
+            • CPU-13% MEM-23GB
+            <br />
+            • Server Online Status OK
+            <br />
+            • 42 Users Connected Now
+            <br />
+            • Temperature: 45°C Fan: 80%
+            <br />
           </p>
           <p className="info">
-            ✨ <strong>ÍCONE COM TEXTO:</strong> Fundo transparente, texto colorido<br />
-            📐 Ícone 64x64px para compatibilidade com tray<br />
-            🔤 Fonte fixa (32px bold monospace)<br />
-            📝 Máximo 6 caracteres (fonte diminui conforme tamanho)<br />
+            ✨ <strong>ÍCONE COM TEXTO:</strong> Fundo transparente, texto
+            colorido
+            <br />
+            📐 Ícone 256x64px (tamanho fixo otimizado)
+            <br />
+            🔤 Fonte dinâmica (bold monospace adaptável)
+            <br />
+            📝 Fonte mínima 20px (máxima legibilidade)
+            <br />
             💡 Digite "CPU-13" ou "MEM8GB" e escolha a cor do texto
           </p>
         </div>
       </div>
-
     </main>
   );
 }

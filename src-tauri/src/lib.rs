@@ -11,14 +11,16 @@ struct AppState {
     tray_text: Arc<Mutex<String>>,
 }
 
-
-
-
 #[tauri::command]
-fn update_tray_icon(app_handle: tauri::AppHandle, icon_data: Vec<u8>) -> Result<(), String> {
+fn update_tray_icon(
+    app_handle: tauri::AppHandle,
+    icon_data: Vec<u8>,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
     // Atualizar o ícone do tray com os dados recebidos do frontend
     if let Some(tray) = app_handle.tray_by_id("main-tray") {
-        let icon = tauri::image::Image::new_owned(icon_data, 64, 64);
+        let icon = tauri::image::Image::new_owned(icon_data, width, height);
         tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
     }
 
@@ -26,10 +28,7 @@ fn update_tray_icon(app_handle: tauri::AppHandle, icon_data: Vec<u8>) -> Result<
 }
 
 #[tauri::command]
-fn update_tray_text(
-    state: tauri::State<AppState>,
-    text: String,
-) -> Result<(), String> {
+fn update_tray_text(state: tauri::State<AppState>, text: String) -> Result<(), String> {
     // Apenas atualizar o estado
     let mut tray_text = state.tray_text.lock().map_err(|e| e.to_string())?;
     *tray_text = text;
@@ -46,11 +45,11 @@ fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu
     let show_item = MenuItem::with_id(app, "show", "Abrir Interface", true, None::<&str>)?;
     let hide_item = MenuItem::with_id(app, "hide", "Minimizar", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
-    
+
     let menu = MenuBuilder::new(app)
         .items(&[&show_item, &hide_item, &quit_item])
         .build()?;
-    
+
     Ok(menu)
 }
 
