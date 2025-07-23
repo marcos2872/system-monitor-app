@@ -1,4 +1,4 @@
-import { SystemMetrics } from "../../interfaces";
+import { SystemMetrics } from "../interfaces";
 import { useState, useEffect } from "react";
 import { Chart, ChartWrapperOptions } from "react-google-charts";
 import { IoChevronDown, IoChevronUp } from "react-icons/io5";

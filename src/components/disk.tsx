@@ -1,4 +1,4 @@
-import { DiskMetrics } from "../../interfaces";
+import { DiskMetrics } from "../interfaces";
 import { useState } from "react";
 import { Chart, ChartWrapperOptions } from "react-google-charts";
 import { IoChevronDown, IoChevronUp } from "react-icons/io5";
