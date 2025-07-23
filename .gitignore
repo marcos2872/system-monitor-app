@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri build files to ignore
+src-tauri/target/
+!src-tauri/target/release/bundle/deb/*.deb
+!src-tauri/target/release/bundle/rpm/*.rpm
+!src-tauri/target/release/bundle/appimage/*.AppImage

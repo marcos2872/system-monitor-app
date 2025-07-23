@@ -18,12 +18,12 @@ function App() {
       // Limpar com transparente
       ctx.clearRect(0, 0, 64, 64);
 
-      // Pegar apenas 3 caracteres para fonte ainda maior
-      const shortText = text.substring(0, 3);
+      // Pegar até 6 caracteres
+      const shortText = text.substring(0, 6);
       
       console.log('Desenhando texto:', shortText, 'do original:', text, 'cor:', textColor);
 
-      // Fonte MUITO maior
+      // Fonte fixa em 32px para legibilidade
       ctx.fillStyle = color;
       ctx.font = 'bold 32px monospace'; 
       ctx.textAlign = 'center';
@@ -170,9 +170,9 @@ function App() {
           <p className="info">
             ✨ <strong>ÍCONE COM TEXTO:</strong> Fundo transparente, texto colorido<br />
             📐 Ícone 64x64px para compatibilidade com tray<br />
-            🔤 Fonte grande (32px bold monospace)<br />
-            📝 Máximo 3 caracteres para legibilidade<br />
-            💡 Digite "CPU" ou "MEM" e escolha a cor do texto
+            🔤 Fonte fixa (32px bold monospace)<br />
+            📝 Máximo 6 caracteres (fonte diminui conforme tamanho)<br />
+            💡 Digite "CPU-13" ou "MEM8GB" e escolha a cor do texto
           </p>
         </div>
       </div>
