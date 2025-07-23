@@ -1,9 +1,15 @@
+mod monitor;
+
+use monitor::SystemMonitor;
+
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuBuilder, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     Manager, Runtime,
 };
+
+use crate::monitor::SystemMetrics;
 
 // Estado global do app
 #[derive(Default)]
@@ -53,6 +59,14 @@ fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu
     Ok(menu)
 }
 
+#[tauri::command]
+async fn monitor_sys() -> Result<SystemMetrics, String> {
+    let mut monitor = SystemMonitor::new();
+    monitor.update_metrics().await;
+    let t = monitor.get_all_metrics();
+    Ok(t)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -61,7 +75,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             update_tray_text,
             update_tray_icon,
-            get_tray_text
+            get_tray_text,
+            monitor_sys
         ])
         .setup(|app| {
             let menu = create_tray_menu(&app.handle())?;

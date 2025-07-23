@@ -1,215 +1,213 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { SystemMetrics } from "./interfaces";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { MdClose, MdMinimize } from "react-icons/md";
+import { CpuUsage } from "./components/cpu";
+import { MemoryUsage } from "./components/memory";
+import { DiskUsage } from "./components/disk";
+import { NetworkUsage } from "./components/network";
+import { SystemInfo } from "./components/system";
 
 function App() {
-  const [trayText, setTrayText] = useState("CPU-0%");
-  const [currentTrayText, setCurrentTrayText] = useState("CPU-0%");
-  const [textColor, setTextColor] = useState("#ffffff");
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const appWindow = getCurrentWindow();
 
-  // Função para gerar ícone com texto
-  function generateTextIcon(
-    text: string,
-    color: string = textColor,
+  async function generateTextIcon(
+    cpu: string,
+    ram: string,
   ): Promise<Uint8Array> {
     return new Promise((resolve) => {
+      const svgString = `
+      <svg width="400" height="128" xmlns="http://www.w3.org/2000/svg">
+        <text
+          x="0"
+          y="32"
+          font-family="monospace"
+          font-size="32px"
+          font-weight="bold"
+          fill="#00ff00"
+          text-anchor="start"
+          dominant-baseline="middle"
+        >cpu:</text>
+        <text
+          x="80"
+          y="32"
+          font-family="monospace"
+          font-size="32px"
+          font-weight="bold"
+          fill="#ffffff"
+          text-anchor="start"
+          dominant-baseline="middle"
+        >${cpu}%</text>
+        <text
+          x="160"
+          y="32"
+          font-family="monospace"
+          font-size="32px"
+          font-weight="bold"
+          fill="#ffffff"
+          text-anchor="start"
+          dominant-baseline="middle"
+        >|</text>
+        <text
+          x="180"
+          y="32"
+          font-family="monospace"
+          font-size="32px"
+          font-weight="bold"
+          fill="#00ff00"
+          text-anchor="start"
+          dominant-baseline="middle"
+        >ram:</text>
+        <text
+          x="260"
+          y="32"
+          font-family="monospace"
+          font-size="32px"
+          font-weight="bold"
+          fill="#ffffff"
+          text-anchor="start"
+          dominant-baseline="middle"
+        >${ram}gb</text>
+      </svg>
+      `;
+
+      const svgElement = new DOMParser().parseFromString(
+        svgString,
+        "image/svg+xml",
+      ).documentElement;
+      const serializer = new XMLSerializer();
+      const svgData = serializer.serializeToString(svgElement);
+
       const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 64;
+      canvas.width = 400;
+      canvas.height = 128;
       const ctx = canvas.getContext("2d")!;
 
-      // Limpar com transparente
-      ctx.clearRect(0, 0, 256, 64);
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, 400, 64);
+        ctx.drawImage(img, 0, 0);
 
-      console.log("Desenhando texto:", text, "cor:", textColor);
+        const imageData = ctx.getImageData(0, 0, 400, 64);
 
-      ctx.fillStyle = color;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+        resolve(new Uint8Array(imageData.data));
+        URL.revokeObjectURL(img.src);
+      };
 
-      // Calcular tamanho da fonte baseado no comprimento do texto
-      let fontSize = 32;
-      ctx.font = `${fontSize}px monospace`;
-
-      // Ajustar fonte dinamicamente para caber no canvas com mínimo de 20px
-      let textWidth = ctx.measureText(text).width;
-      const maxWidth = 248; // Deixar margem de 4px de cada lado
-
-      while (textWidth > maxWidth && fontSize > 20) {
-        fontSize -= 2;
-        ctx.font = `bold ${fontSize}px monospace`;
-        textWidth = ctx.measureText(text).width;
-      }
-
-      // Desenhar o texto centralizado
-      ctx.fillText(text, 128, 32);
-
-      const imageData = ctx.getImageData(0, 0, 256, 64);
-      console.log("Texto renderizado:", text, "com fonte:", fontSize + "px");
-
-      resolve(new Uint8Array(imageData.data));
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml" });
+      img.src = URL.createObjectURL(svgBlob);
     });
   }
 
-  async function updateTrayText() {
+  async function updateTrayText(cpu: string, ram: string) {
     try {
-      // Gerar o ícone com o novo texto
-      const iconData = await generateTextIcon(trayText, textColor);
+      const iconData = await generateTextIcon(cpu, ram);
 
-      // Atualizar o estado no backend
-      await invoke("update_tray_text", { text: trayText });
+      // await invoke("update_tray_text", { text: trayText });
 
-      // Atualizar o ícone com dimensões fixas
       await invoke("update_tray_icon", {
         iconData: Array.from(iconData),
-        width: 256,
+        width: 400,
         height: 64,
       });
-
-      // Atualizar o estado local
-      setCurrentTrayText(trayText);
-
-      console.log("Texto atualizado com sucesso:", trayText);
     } catch (error) {
       console.error("Erro ao atualizar texto do tray:", error);
     }
   }
 
-  async function getCurrentTrayText() {
+  async function monitor() {
     try {
-      const text = (await invoke("get_tray_text")) as string;
-      setCurrentTrayText(text);
-      setTrayText(text);
-    } catch (error) {
-      console.error("Erro ao buscar texto do tray:", error);
+      const monit: SystemMetrics = await invoke("monitor_sys");
+      updateTrayText(
+        monit.cpu.usage_percent.toFixed(0),
+        (monit.memory.used_memory / 1024 / 1024 / 1024).toFixed(0),
+      );
+      setMetrics(monit);
+      setError(null);
+      if (loading) setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch metrics");
+      setLoading(false);
     }
   }
-
-  // Inicializar ícone quando o componente montar
   useEffect(() => {
-    const initializeIcon = async () => {
-      await getCurrentTrayText();
-      // Gerar ícone inicial com o texto carregado
-      const iconData = await generateTextIcon(currentTrayText, textColor);
+    monitor();
+    const interval = setInterval(() => {
+      monitor();
+    }, 500);
+    return () => clearInterval(interval);
+  }, [loading]);
 
-      try {
-        await invoke("update_tray_icon", {
-          iconData: Array.from(iconData),
-          width: 256,
-          height: 64,
-        });
-      } catch (error) {
-        console.error("Erro ao inicializar ícone:", error);
-      }
-    };
+  if (loading) {
+    return (
+      <main className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="text-white text-xl">Loading system metrics...</div>
+      </main>
+    );
+  }
 
-    initializeIcon();
-  }, []);
-
-  // Atualizar ícone quando currentTrayText mudar
-  useEffect(() => {
-    const updateIcon = async () => {
-      if (currentTrayText !== undefined && currentTrayText !== "") {
-        const iconData = await generateTextIcon(currentTrayText, textColor);
-
-        try {
-          await invoke("update_tray_icon", {
-            iconData: Array.from(iconData),
-            width: 256,
-            height: 64,
-          });
-        } catch (error) {
-          console.error("Erro ao atualizar ícone:", error);
-        }
-      }
-    };
-
-    updateIcon();
-  }, [currentTrayText]);
-
+  if (error) {
+    return (
+      <main className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="text-red-400 text-xl">Error: {error}</div>
+      </main>
+    );
+  }
   return (
-    <main className="container">
-      <h1>System Monitor App</h1>
-
-      <div className="card">
-        <h2>Controle do Ícone do Tray</h2>
-        <p>
-          Texto atual no tray: <strong>{currentTrayText}</strong>
-        </p>
-
-        <form
-          className="row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            updateTrayText();
-          }}
+    <main className="h-screen cursor-default select-none relative overflow-hidden">
+      <header className="w-full h-8 flex border-s-stone-300 border-b bg-gray-800 flex-shrink-0">
+        <div
+          data-tauri-drag-region
+          className="flex w-full justify-center items-center relative"
         >
-          <input
-            type="text"
-            value={trayText}
-            onChange={(e) => setTrayText(e.currentTarget.value)}
-            placeholder="Ex: CPU-13% MEM-23GB"
-            maxLength={50}
-            style={{ minWidth: "250px" }}
-          />
-          <button type="submit">Atualizar Ícone</button>
-        </form>
-
-        <div className="color-controls">
-          <label>Cor do texto:</label>
-          <div className="color-options">
-            <button
-              type="button"
-              className={`color-btn ${textColor === "#000000" ? "active" : ""}`}
-              onClick={() => setTextColor("#000000")}
-              style={{ backgroundColor: "#000000" }}
-            >
-              Preto
-            </button>
-            <button
-              type="button"
-              className={`color-btn ${textColor === "#ffffff" ? "active" : ""}`}
-              onClick={() => setTextColor("#ffffff")}
-              style={{ backgroundColor: "#ffffff", color: "#000" }}
-            >
-              Branco
-            </button>
-            <button
-              type="button"
-              className={`color-btn ${textColor === "#ff0000" ? "active" : ""}`}
-              onClick={() => setTextColor("#ff0000")}
-              style={{ backgroundColor: "#ff0000" }}
-            >
-              Vermelho
-            </button>
+          <div>
+            <h2 className="text-gray-200">Monitor de Sistema</h2>
+          </div>
+          <div className="flex absolute right-0 gap-4 px-4">
+            <div>
+              <MdMinimize
+                color="white"
+                onClick={() => {
+                  appWindow.setSkipTaskbar(true);
+                  appWindow.minimize();
+                }}
+              />
+            </div>
+            <div>
+              <MdClose
+                color="white"
+                onClick={() => {
+                  appWindow.close();
+                }}
+              />
+            </div>
           </div>
         </div>
+      </header>
+      <div className="flex-1 h-screen bg-gray-600 p-4 pb-12 scroll-container">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {metrics && (
+            <>
+              {/* CPU Metrics */}
+              <CpuUsage data={metrics.cpu} />
 
-        <div className="examples">
-          <p className="info">
-            <strong>Exemplos de textos:</strong>
-            <br />
-            • CPU-13% MEM-23GB
-            <br />
-            • Server Online Status OK
-            <br />
-            • 42 Users Connected Now
-            <br />
-            • Temperature: 45°C Fan: 80%
-            <br />
-          </p>
-          <p className="info">
-            ✨ <strong>ÍCONE COM TEXTO:</strong> Fundo transparente, texto
-            colorido
-            <br />
-            📐 Ícone 256x64px (tamanho fixo otimizado)
-            <br />
-            🔤 Fonte dinâmica (bold monospace adaptável)
-            <br />
-            📝 Fonte mínima 20px (máxima legibilidade)
-            <br />
-            💡 Digite "CPU-13" ou "MEM8GB" e escolha a cor do texto
-          </p>
+              {/* Memory Metrics */}
+              <MemoryUsage data={metrics.memory} />
+
+              {/* Disk Metrics */}
+              <DiskUsage data={metrics.disk} />
+
+              {/* Network Metrics */}
+              <NetworkUsage data={metrics.network} />
+
+              {/* System Info */}
+              <SystemInfo data={metrics} />
+            </>
+          )}
         </div>
       </div>
     </main>

@@ -12,9 +12,16 @@
   "app": {
     "windows": [
       {
-        "title": "system-monitor-app",
-        "width": 800,
-        "height": 600,
+        "title": "System Monitor",
+        "width": 920,
+        "height": 980,
+        "resizable": true,
+        "fullscreen": false,
+        "maximizable": false,
+        "minimizable": true,
+        "alwaysOnTop": false,
+        "decorations": false,
+        "center": true,
         "visible": false,
         "skipTaskbar": true
       }
@@ -38,6 +45,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/README.md": "../README.md",
+          "/usr/share/assets": "../assets/"
+        }
+      }
+    }
   }
 }
