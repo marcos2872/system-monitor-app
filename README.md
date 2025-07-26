@@ -47,12 +47,41 @@ cd system-monitor-app
 deno install
 ```
 
-### 3. Execute em modo de desenvolvimento
+### 3. Instalar todas as dependências necessárias para o Tauri no Ubuntu/Debian
+```bash
+sudo apt update && sudo apt install -y \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libgtk-3-dev \
+    libwebkit2gtk-4.0-dev \
+    libwebkit2gtk-4.1-dev \
+    libgdk-pixbuf2.0-dev \
+    libpango1.0-dev \
+    libatk1.0-dev \
+    libcairo-gobject2 \
+    libcairo2-dev \
+    libglib2.0-dev \
+    libglib2.0-dev-bin \
+    libgobject-introspection-1.0-dev \
+    libgirepository1.0-dev \
+    libsoup-3.0-dev \
+    libsoup2.4-dev \
+    libjavascriptcoregtk-4.1-dev \
+    libjavascriptcoregtk-4.0-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    curl \
+    wget \
+    file
+```
+
+### 4. Execute em modo de desenvolvimento
 ```bash
 deno task tauri dev
 ```
 
-### 4. Build para produção
+### 5. Build para produção
 ```bash
 deno task tauri build
 ```
