@@ -21,58 +21,88 @@ function App() {
   ): Promise<Uint8Array> {
     return new Promise((resolve) => {
       const svgString = `
-      <svg width="400" height="128" xmlns="http://www.w3.org/2000/svg">
-        <text
-          x="0"
-          y="32"
-          font-family="monospace"
-          font-size="32px"
-          font-weight="bold"
-          fill="#00ff00"
-          text-anchor="start"
-          dominant-baseline="middle"
-        >cpu:</text>
-        <text
-          x="80"
-          y="32"
-          font-family="monospace"
-          font-size="32px"
-          font-weight="bold"
-          fill="#ffffff"
-          text-anchor="start"
-          dominant-baseline="middle"
-        >${cpu}%</text>
-        <text
-          x="160"
-          y="32"
-          font-family="monospace"
-          font-size="32px"
-          font-weight="bold"
-          fill="#ffffff"
-          text-anchor="start"
-          dominant-baseline="middle"
-        >|</text>
-        <text
-          x="180"
-          y="32"
-          font-family="monospace"
-          font-size="32px"
-          font-weight="bold"
-          fill="#00ff00"
-          text-anchor="start"
-          dominant-baseline="middle"
-        >ram:</text>
-        <text
-          x="260"
-          y="32"
-          font-family="monospace"
-          font-size="32px"
-          font-weight="bold"
-          fill="#ffffff"
-          text-anchor="start"
-          dominant-baseline="middle"
-        >${ram}gb</text>
-      </svg>
+        <svg width="98" height="32" xmlns="http://www.w3.org/2000/svg">
+        <rect
+            width="100%"
+            height="100%"
+            fill="transparent"
+          />
+          {CPU}
+          <text
+            x="5"
+            y="6"
+            font-family="monospace"
+            font-size="12px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >c</text>
+          <text
+            x="13"
+            y="6"
+            font-family="monospace"
+            font-size="12px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >p</text>
+          <text
+            x="21"
+            y="6"
+            font-family="monospace"
+            font-size="12px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >u</text>
+          <text
+            x="5"
+            y="23"
+            font-family="monospace"
+            font-size="16px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >${cpu}%</text>
+
+          {RAM}
+          <text
+            x="54"
+            y="6"
+            font-family="monospace"
+            font-size="12px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >r</text>
+          <text
+            x="62"
+            y="6"
+            font-family="monospace"
+            font-size="12px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >a</text>
+          <text
+            x="70"
+            y="6"
+            font-family="monospace"
+            font-size="12px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >m</text>
+          <text
+            x="54"
+            y="23"
+            font-family="monospace"
+            font-size="16px"
+            fill="#ffffff"
+            text-anchor="start"
+            dominant-baseline="middle"
+          >${ram}gb</text>
+        </svg>
       `;
 
       const svgElement = new DOMParser().parseFromString(
@@ -83,16 +113,16 @@ function App() {
       const svgData = serializer.serializeToString(svgElement);
 
       const canvas = document.createElement("canvas");
-      canvas.width = 400;
-      canvas.height = 128;
+      canvas.width = 98;
+      canvas.height = 32;
       const ctx = canvas.getContext("2d")!;
 
       const img = new Image();
       img.onload = () => {
-        ctx.clearRect(0, 0, 400, 64);
+        ctx.clearRect(0, 0, 98, 32);
         ctx.drawImage(img, 0, 0);
 
-        const imageData = ctx.getImageData(0, 0, 400, 64);
+        const imageData = ctx.getImageData(0, 0, 98, 32);
 
         resolve(new Uint8Array(imageData.data));
         URL.revokeObjectURL(img.src);
@@ -107,12 +137,10 @@ function App() {
     try {
       const iconData = await generateTextIcon(cpu, ram);
 
-      // await invoke("update_tray_text", { text: trayText });
-
       await invoke("update_tray_icon", {
         iconData: Array.from(iconData),
-        width: 400,
-        height: 64,
+        width: 98,
+        height: 32,
       });
     } catch (error) {
       console.error("Erro ao atualizar texto do tray:", error);

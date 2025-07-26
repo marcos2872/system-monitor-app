@@ -48,13 +48,9 @@ fn get_tray_text(state: tauri::State<AppState>) -> Result<String, String> {
 }
 
 fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
-    let show_item = MenuItem::with_id(app, "show", "Abrir Interface", true, None::<&str>)?;
-    let hide_item = MenuItem::with_id(app, "hide", "Minimizar", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
 
-    let menu = MenuBuilder::new(app)
-        .items(&[&show_item, &hide_item, &quit_item])
-        .build()?;
+    let menu = MenuBuilder::new(app).items(&[&quit_item]).build()?;
 
     Ok(menu)
 }
@@ -84,15 +80,6 @@ pub fn run() {
             let _tray = TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
-                    "show" => {
-                        let window = app.get_webview_window("main").unwrap();
-                        window.show().unwrap();
-                        window.set_focus().unwrap();
-                    }
-                    "hide" => {
-                        let window = app.get_webview_window("main").unwrap();
-                        window.hide().unwrap();
-                    }
                     "quit" => {
                         app.exit(0);
                     }
