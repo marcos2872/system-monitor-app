@@ -30,36 +30,36 @@ function App() {
           {CPU}
           <text
             x="5"
-            y="6"
+            y="9"
             font-family="monospace"
             font-size="12px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
-          >c</text>
+          >C</text>
           <text
             x="13"
-            y="6"
+            y="9"
             font-family="monospace"
             font-size="12px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
-          >p</text>
+          >P</text>
           <text
             x="21"
-            y="6"
+            y="9"
             font-family="monospace"
             font-size="12px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
-          >u</text>
+          >U</text>
           <text
             x="5"
-            y="23"
+            y="22"
             font-family="monospace"
-            font-size="16px"
+            font-size="14px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
@@ -68,36 +68,36 @@ function App() {
           {RAM}
           <text
             x="54"
-            y="6"
+            y="9"
             font-family="monospace"
             font-size="12px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
-          >r</text>
+          >R</text>
           <text
             x="62"
-            y="6"
+            y="9"
             font-family="monospace"
             font-size="12px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
-          >a</text>
+          >A</text>
           <text
             x="70"
-            y="6"
+            y="9"
             font-family="monospace"
             font-size="12px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
-          >m</text>
+          >M</text>
           <text
             x="54"
-            y="23"
+            y="22"
             font-family="monospace"
-            font-size="16px"
+            font-size="14px"
             fill="#ffffff"
             text-anchor="start"
             dominant-baseline="middle"
@@ -162,6 +162,7 @@ function App() {
       setLoading(false);
     }
   }
+
   useEffect(() => {
     monitor();
     const interval = setInterval(() => {
