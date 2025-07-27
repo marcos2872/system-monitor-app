@@ -49,8 +49,7 @@
     "linux": {
       "deb": {
         "files": {
-          "/usr/share/README.md": "../README.md",
-          "/usr/share/assets": "../assets/"
+          "/usr/share/README.md": "../README.md"
         }
       }
     }
