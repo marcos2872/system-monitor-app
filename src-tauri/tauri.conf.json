@@ -13,27 +13,27 @@
     "windows": [
       {
         "title": "System Monitor",
-        "width": 920,
-        "height": 980,
-        "resizable": true,
         "fullscreen": false,
-        "maximizable": false,
-        "minimizable": true,
-        "alwaysOnTop": false,
+        "height": 200,
+        "width": 430,
+        "alwaysOnTop": true,
+        "closable": false,
         "decorations": false,
-        "center": true,
+        "dragDropEnabled": false,
+        "focus": false,
+        "hiddenTitle": true,
+        "label": "main",
+        "maximizable": false,
+        "minimizable": false,
+        "resizable": false,
+        "shadow": false,
         "visible": false,
+        "transparent": true,
         "skipTaskbar": true
       }
     ],
     "security": {
       "csp": null
-    },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false,
-      "tooltip": "System Monitor"
     }
   },
   "bundle": {

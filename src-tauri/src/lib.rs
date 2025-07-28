@@ -1,15 +1,8 @@
 mod monitor;
-
-use monitor::SystemMonitor;
-
-use std::sync::{Arc, Mutex};
-use tauri::{
-    menu::{Menu, MenuBuilder, MenuItem},
-    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    Manager, Runtime,
-};
-
+mod tray;
 use crate::monitor::SystemMetrics;
+use monitor::SystemMonitor;
+use std::sync::{Arc, Mutex};
 
 // Estado global do app
 #[derive(Default)]
@@ -25,7 +18,7 @@ fn update_tray_icon(
     height: u32,
 ) -> Result<(), String> {
     // Atualizar o ícone do tray com os dados recebidos do frontend
-    if let Some(tray) = app_handle.tray_by_id("main-tray") {
+    if let Some(tray) = app_handle.tray_by_id("menu_stats") {
         let icon = tauri::image::Image::new_owned(icon_data, width, height);
         tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
     }
@@ -47,14 +40,6 @@ fn get_tray_text(state: tauri::State<AppState>) -> Result<String, String> {
     Ok(tray_text.clone())
 }
 
-fn create_tray_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
-    let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
-
-    let menu = MenuBuilder::new(app).items(&[&quit_item]).build()?;
-
-    Ok(menu)
-}
-
 #[tauri::command]
 async fn monitor_sys() -> Result<SystemMetrics, String> {
     let mut monitor = SystemMonitor::new();
@@ -66,7 +51,7 @@ async fn monitor_sys() -> Result<SystemMetrics, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_positioner::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             update_tray_text,
@@ -75,31 +60,10 @@ pub fn run() {
             monitor_sys
         ])
         .setup(|app| {
-            let menu = create_tray_menu(&app.handle())?;
-
-            let _tray = TrayIconBuilder::with_id("main-tray")
-                .menu(&menu)
-                .on_menu_event(move |app, event| match event.id.as_ref() {
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: tauri::tray::MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(webview_window) = app.get_webview_window("main") {
-                            let _ = webview_window.show();
-                            let _ = webview_window.set_focus();
-                        }
-                    }
-                })
-                .build(app)?;
+            #[cfg(target_os = "linux")]
+            {
+                tray::init_menu_stats(app.handle())?;
+            }
 
             Ok(())
         })
